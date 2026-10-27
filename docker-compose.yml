@@ -1,0 +1,60 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: devsu-postgres
+    environment:
+      POSTGRES_DB: devsudb
+      POSTGRES_USER: devsu
+      POSTGRES_PASSWORD: devsu123
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devsu -d devsudb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - devsu-net
+
+  ms-cliente-persona:
+    build: ./ms-cliente-persona
+    container_name: ms-clientes
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/devsudb
+      SPRING_DATASOURCE_USERNAME: devsu
+      SPRING_DATASOURCE_PASSWORD: devsu123
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - devsu-net
+
+  ms-cuenta-movimiento:
+    build: ./ms-cuenta-movimiento
+    container_name: ms-cuentas
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/devsudb
+      SPRING_DATASOURCE_USERNAME: devsu
+      SPRING_DATASOURCE_PASSWORD: devsu123
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      CLIENTE_SERVICE_URL: http://ms-cliente-persona:8080/api/v1/clients
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ms-cliente-persona:
+        condition: service_started
+    networks:
+      - devsu-net
+
+volumes:
+  postgres_data:
+
+networks:
+  devsu-net:
